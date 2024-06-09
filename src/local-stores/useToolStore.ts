@@ -2,7 +2,8 @@ import { create } from 'zustand';
 
 export enum Tool {
   SELECTION = 'SELECTION',
-  RECTANGLE = 'RECTANGLE'
+  RECTANGLE = 'RECTANGLE',
+  LINE = 'LINE'
 }
 
 interface BearState {
@@ -11,7 +12,7 @@ interface BearState {
 }
 
 const useToolStore = create<BearState>((set) => ({
-  tool: Tool.SELECTION,
+  tool: Tool.RECTANGLE,
   setTool: (tool: Tool) => set(() => ({ tool })),
 }));
 

@@ -4,13 +4,18 @@ import useToolStore, { Tool } from '@/local-stores/useToolStore.ts';
 const tools: { tool: Tool, label: string, value: string }[] = [
   {
     tool: Tool.SELECTION,
-    label: 'Selection',
+    label: navigator?.maxTouchPoints === 0 ? 'Selection - hold shift to select multiple' : 'Selection',
     value: 'selection'
   },
   {
     tool: Tool.RECTANGLE,
     label: 'Rectangle',
     value: 'rectangle',
+  },
+  {
+    tool: Tool.LINE,
+    label: 'Line',
+    value: 'line',
   }
 ];
 
