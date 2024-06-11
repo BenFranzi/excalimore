@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 export enum Tool {
+  HAND = 'HAND',
   SELECTION = 'SELECTION',
   RECTANGLE = 'RECTANGLE',
   LINE = 'LINE'

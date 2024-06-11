@@ -111,11 +111,18 @@ function getClickedElement(elements: Element[], coordinates: Coordinates): Eleme
   return undefined;
 }
 
-function getEventCoordinates(event: MouseEvent | TouchEvent): Coordinates {
+function getEventCoordinates(event: MouseEvent | TouchEvent, canvasRef?: HTMLCanvasElement | null): Coordinates {
   if (event.type.includes('mouse')) { // TODO: handle events using types
     return {
       x: (event as MouseEvent).clientX - (event.currentTarget as HTMLElement).offsetLeft,
       y: (event as MouseEvent).clientY - (event.currentTarget as HTMLElement).offsetTop,
+    };
+  }
+
+  if (!event.currentTarget && canvasRef) {
+    return {
+      x: (event as TouchEvent).touches[0].clientX - canvasRef.offsetLeft,
+      y: (event as TouchEvent).touches[0].clientY - canvasRef.offsetTop,
     };
   }
 
@@ -135,6 +142,8 @@ function InfiniteCanvas(): ReactNode {
   const [action, setAction] = useState<'resize'|'drag'>('resize');
   const [draggingElement, setDraggingElement] = useState<Element | null>(null);
   const [mouseDownOffset, setMouseDownOffset] = useState<Coordinates>({ x: 0, y: 0 }); // offset from elements x, y
+  const [handCoordinates, setHandCoordinates] = useState<Coordinates | null>(null);
+  const [handOffsets, setHandOffsets] = useState<Coordinates | null>(null);
 
   function onWheel(event: WheelEvent) {
     setOffsets((previous) => {
@@ -201,6 +210,11 @@ function InfiniteCanvas(): ReactNode {
       y: eventCoordinates.y - offsets.y
     };
 
+    if (tool === Tool.HAND) {
+      setHandCoordinates(eventCoordinates);
+      setHandOffsets(offsets);
+    }
+
     if (tool === Tool.SELECTION) {
       const element = getClickedElement(elements, coordinates);
       if (element === undefined) {
@@ -255,51 +269,79 @@ function InfiniteCanvas(): ReactNode {
   }
 
   function onMove(event: MouseEvent<HTMLCanvasElement> |  TouchEvent) {
-    if (draggingElement == null) return;
     const eventCoordinate: Coordinates = getEventCoordinates(event);
 
-    switch (action) {
-      case 'resize':
-        if (draggingElement.type === 'rectangle') {
-          draggingElement.width = eventCoordinate.x - draggingElement.x - offsets.x;
-          draggingElement.height = eventCoordinate.y - draggingElement.y - offsets.y;
-        }
+    if (tool === Tool.HAND && handCoordinates != null) {
 
-        if (draggingElement.type === 'line') {
-          draggingElement.width = eventCoordinate.x - offsets.x;
-          draggingElement.height = eventCoordinate.y - offsets.y;
+      setOffsets((previous) => {
+        if (event.type.includes('mouse') || !handOffsets) {
+          return {
+            x: previous.x + (event as MouseEvent).movementX,
+            y: previous.y + (event as MouseEvent).movementY
+          };
         }
-        break;
-      case 'drag':
-        const elementsMap = elements.reduce((acc, next) => ({ ...acc, [next.id]: next }), {});
+        const touchEvent = event as TouchEvent;
+        const current = getEventCoordinates(touchEvent, canvasRef.current);
 
-        const newCoordinates: Coordinates = {
-          x: eventCoordinate.x - offsets.x - mouseDownOffset.x,
-          y: eventCoordinate.y - offsets.y - mouseDownOffset.y,
+
+        const movementX = current.x - handCoordinates.x;
+        const movementY = current.y - handCoordinates.y;
+
+        return {
+          x: handOffsets.x + movementX,
+          y: handOffsets.y + movementY
         };
+      });
 
-        const deltaX = newCoordinates.x - draggingElement.x;
-        const deltaY = newCoordinates.y - draggingElement.y;
-        draggingElement.x = newCoordinates.x;
-        draggingElement.y = newCoordinates.y;
 
-        if (draggingElement.type === 'line') {
-          draggingElement.width = draggingElement.width += deltaX;
-          draggingElement.height = draggingElement.height += deltaY;
-        }
 
-        for (const selectedId of selectedElements) {
-          if (selectedId === draggingElement.id) continue;
 
-          elementsMap[selectedId].x += deltaX;
-          elementsMap[selectedId].y += deltaY;
+    } else {
+      if (draggingElement == null) return;
 
-          if (elementsMap[selectedId].type === 'line') {
-            elementsMap[selectedId].width = elementsMap[selectedId].width += deltaX;
-            elementsMap[selectedId].height = elementsMap[selectedId].height += deltaY;
+      switch (action) {
+        case 'resize':
+          if (draggingElement.type === 'rectangle') {
+            draggingElement.width = eventCoordinate.x - draggingElement.x - offsets.x;
+            draggingElement.height = eventCoordinate.y - draggingElement.y - offsets.y;
           }
-        }
-        break;
+
+          if (draggingElement.type === 'line') {
+            draggingElement.width = eventCoordinate.x - offsets.x;
+            draggingElement.height = eventCoordinate.y - offsets.y;
+          }
+          break;
+        case 'drag':
+          const elementsMap = elements.reduce((acc, next) => ({ ...acc, [next.id]: next }), {});
+
+          const newCoordinates: Coordinates = {
+            x: eventCoordinate.x - offsets.x - mouseDownOffset.x,
+            y: eventCoordinate.y - offsets.y - mouseDownOffset.y,
+          };
+
+          const deltaX = newCoordinates.x - draggingElement.x;
+          const deltaY = newCoordinates.y - draggingElement.y;
+          draggingElement.x = newCoordinates.x;
+          draggingElement.y = newCoordinates.y;
+
+          if (draggingElement.type === 'line') {
+            draggingElement.width = draggingElement.width += deltaX;
+            draggingElement.height = draggingElement.height += deltaY;
+          }
+
+          for (const selectedId of selectedElements) {
+            if (selectedId === draggingElement.id) continue;
+
+            elementsMap[selectedId].x += deltaX;
+            elementsMap[selectedId].y += deltaY;
+
+            if (elementsMap[selectedId].type === 'line') {
+              elementsMap[selectedId].width = elementsMap[selectedId].width += deltaX;
+              elementsMap[selectedId].height = elementsMap[selectedId].height += deltaY;
+            }
+          }
+          break;
+      }
     }
 
 
@@ -309,6 +351,7 @@ function InfiniteCanvas(): ReactNode {
   function onUp(_: MouseEvent<HTMLCanvasElement> | TouchEvent) {
     setDraggingElement(null);
     onRender();
+    setHandCoordinates(null);
   }
 
   return (
@@ -317,6 +360,7 @@ function InfiniteCanvas(): ReactNode {
         ref={ canvasRef }
         className={ s.canvas }
         height={ window.innerHeight }
+        style={ { cursor: tool === Tool.HAND ? 'grab' : 'pointer' } }
         width={ window.innerWidth }
         onMouseDown={ onDown }
         onMouseMove={ onMove }

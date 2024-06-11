@@ -3,6 +3,11 @@ import useToolStore, { Tool } from '@/local-stores/useToolStore.ts';
 
 const tools: { tool: Tool, label: string, value: string }[] = [
   {
+    tool: Tool.HAND,
+    label: 'Hand',
+    value: 'hand'
+  },
+  {
     tool: Tool.SELECTION,
     label: navigator?.maxTouchPoints === 0 ? 'Selection - hold shift to select multiple' : 'Selection',
     value: 'selection'
